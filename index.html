@@ -1,0 +1,393 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>B737 Fuel Calc</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="B737 Fuel">
+<meta name="theme-color" content="#0b5fd1">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<style>
+/* Theme + page switching work with pure CSS (no JavaScript needed) */
+.app{
+  --bg:#f3f5f8;--card:#fff;--ink:#14202e;--muted:#5b6b7d;--line:#d9e0e8;
+  --acc:#0b5fd1;--ok:#137a3e;--okbg:#e5f5ec;--bad:#b3261e;--badbg:#fde8e6;--warn:#8a5a00;--warnbg:#fff4d6;
+  --field:#f8fafc;--auto:#eef4fd;--plane:#e3e8ef;--planeLine:#9aa8b8;--arr:#0b5fd1;--tgt:#9cc3f5;
+}
+#thNight:checked ~ .app{
+  --bg:#0d131b;--card:#16202c;--ink:#e8eef5;--muted:#93a3b5;--line:#2a3747;
+  --acc:#5aa2ff;--ok:#5fd28f;--okbg:#123222;--bad:#ff8a80;--badbg:#3a1714;--warn:#ffcc66;--warnbg:#3a2c0c;
+  --field:#0f1822;--auto:#132538;--plane:#223040;--planeLine:#4d6075;--arr:#3d8bff;--tgt:#21466f;
+}
+@media (prefers-color-scheme:dark){#thAuto:checked ~ .app{
+  --bg:#0d131b;--card:#16202c;--ink:#e8eef5;--muted:#93a3b5;--line:#2a3747;
+  --acc:#5aa2ff;--ok:#5fd28f;--okbg:#123222;--bad:#ff8a80;--badbg:#3a1714;--warn:#ffcc66;--warnbg:#3a2c0c;
+  --field:#0f1822;--auto:#132538;--plane:#223040;--planeLine:#4d6075;--arr:#3d8bff;--tgt:#21466f;
+}}
+*{box-sizing:border-box}
+body{margin:0;font:16px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+.app{background:var(--bg);color:var(--ink);min-height:100vh;padding:calc(16px + env(safe-area-inset-top)) 16px calc(40px + env(safe-area-inset-bottom));transition:background .2s}
+.wrap{max-width:560px;margin:0 auto}
+.sw{position:absolute;opacity:0;pointer-events:none;width:1px;height:1px}
+/* page switch */
+#pgTime{display:none}
+#rTime:checked ~ #pgTime{display:block}
+#rTime:checked ~ #pgFuel{display:none}
+#rFuel:checked ~ .nav .lf, #rTime:checked ~ .nav .lt{background:var(--acc);color:#fff}
+/* theme switch */
+.theme{display:flex;justify-content:flex-end;gap:4px;margin-bottom:8px}
+.theme label{display:inline-block;margin:0;font-size:13px;font-weight:600;color:var(--muted);padding:6px 10px;border:1px solid var(--line);border-radius:999px;background:var(--card);cursor:pointer}
+#thAuto:checked ~ .app .ta, #thDay:checked ~ .app .td, #thNight:checked ~ .app .tn{background:var(--acc);color:#fff;border-color:var(--acc)}
+.nojs{background:var(--warnbg);color:var(--warn);border-radius:12px;padding:12px;font-size:14px;font-weight:600;margin-bottom:12px}
+h1{font-size:20px;margin:4px 0 2px}
+.sub{color:var(--muted);font-size:13px;margin-bottom:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
+.card h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 10px}
+label{display:block;font-size:13px;color:var(--muted);margin-bottom:4px}
+input,select{width:100%;font-size:20px;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:var(--field);color:var(--ink);font-variant-numeric:tabular-nums}
+input.auto{background:var(--auto);border-color:var(--acc)}
+input:focus,select:focus{outline:2px solid var(--acc);border-color:transparent}
+.row{display:grid;gap:10px;grid-template-columns:1fr 1fr}
+.hidden{display:none}
+.hint{font-size:12px;color:var(--muted);margin-top:4px;min-height:16px}
+.hint button{border:0;background:none;color:var(--acc);font-size:12px;padding:0;cursor:pointer;text-decoration:underline}
+svg{width:100%;height:auto;display:block}
+.legend{display:flex;gap:14px;justify-content:center;font-size:12px;color:var(--muted);margin:4px 0 10px}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-2px;margin-right:5px}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:15px}
+th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600;text-align:right;padding:6px 4px;border-bottom:1px solid var(--line)}
+th:first-child,td:first-child{text-align:left}
+td{text-align:right;padding:8px 4px;border-bottom:1px dashed var(--line)}
+tr.tot td{font-weight:800;border-bottom:0}
+td.add{color:var(--acc);font-weight:700}
+.kv{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px dashed var(--line);font-variant-numeric:tabular-nums}
+.kv:last-child{border-bottom:0}
+.kv b{font-size:17px}
+.big{font-size:26px;font-weight:800;color:var(--acc)}
+.alert{border-radius:12px;padding:14px;font-weight:700;margin-top:10px;font-size:16px}
+.alert.ok{background:var(--okbg);color:var(--ok);border:2px solid var(--ok)}
+.alert.bad{background:var(--badbg);color:var(--bad);border:2px solid var(--bad);animation:pulse 1.2s ease-in-out infinite}
+.alert.warn{background:var(--warnbg);color:var(--warn)}
+@keyframes pulse{50%{opacity:.6}}
+.btn{border:1px solid var(--line);background:var(--field);color:var(--ink);border-radius:10px;padding:12px;font-size:16px;cursor:pointer;width:100%}
+.nav{display:flex;gap:6px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:4px;margin-bottom:14px;position:sticky;top:calc(8px + env(safe-area-inset-top));z-index:5}
+.nav label{flex:1;margin:0;text-align:center;color:var(--muted);font-size:15px;font-weight:600;padding:11px 6px;border-radius:9px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.pad{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:12px}
+.pad button{font-size:34px;font-weight:600;min-height:72px;padding:0;border:1px solid var(--line);border-radius:16px;background:var(--field);color:var(--ink);cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.pad button.op{color:#fff;background:var(--acc);border-color:var(--acc);font-weight:700;font-size:40px}
+.pad button.fn{color:var(--muted);font-size:28px}
+.pad button:active{transform:scale(.95)}
+#tExpr{font-size:34px;font-weight:600;padding:14px;text-align:right;letter-spacing:.02em;min-height:68px;border:1px solid var(--line);border-radius:12px;background:var(--field);font-variant-numeric:tabular-nums;overflow-wrap:anywhere;line-height:1.2}
+#tExpr .ph{color:var(--muted);opacity:.5}
+.tprev{font-size:18px;color:var(--muted);text-align:right;min-height:26px;margin-top:6px;font-variant-numeric:tabular-nums}
+.tres{font-size:64px;font-weight:800;color:var(--acc);text-align:center;font-variant-numeric:tabular-nums;margin:0 0 8px;line-height:1.1}
+.foot{color:var(--muted);font-size:12px;text-align:center;margin-top:16px}
+</style>
+</head>
+<body>
+<input type="radio" name="theme" id="thAuto" class="sw" checked>
+<input type="radio" name="theme" id="thDay" class="sw">
+<input type="radio" name="theme" id="thNight" class="sw">
+<div class="app">
+<div class="wrap">
+  <input type="radio" name="page" id="rFuel" class="sw" checked>
+  <input type="radio" name="page" id="rTime" class="sw">
+  <div class="theme">
+    <label for="thAuto" class="ta">Auto</label>
+    <label for="thDay" class="td">☀ Day</label>
+    <label for="thNight" class="tn">☾ Night</label>
+  </div>
+  <nav class="nav">
+    <label for="rFuel" class="lf">⛽ Fuel</label>
+    <label for="rTime" class="lt">⏱ Time Calculator</label>
+  </nav>
+  <div class="nojs" id="nojs">⚠ Calculations are disabled in this preview (e.g. WhatsApp viewer). Tap Share → open in Safari/Chrome, or save to Files and open it from there.</div>
+  <div id="pgFuel">
+  <h1>B737 Fuel Calculator</h1>
+  <div class="sub">Wings up to 7,900 kg (½ L, ½ R) · excess to Center · 200 kg tolerance</div>
+
+  <div class="card">
+    <h2>Fuel (kg)</h2>
+    <div class="row">
+      <div><label for="arr">Fuel at landing</label><input id="arr" inputmode="decimal" placeholder="2000"></div>
+      <div><label for="req">Required fuel</label><input id="req" inputmode="decimal" placeholder="10000"></div>
+    </div>
+    <div style="margin-top:10px">
+      <label for="sg">Specific gravity (SG)</label>
+      <select id="sg">
+        <option value="0.79" selected>0.79 (standard)</option>
+        <option value="0.80">0.80</option>
+        <option value="custom">Other…</option>
+      </select>
+      <input id="sgCustom" class="hidden" style="margin-top:8px" inputmode="decimal" placeholder="e.g. 0.785">
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Tanks</h2>
+    <svg viewBox="0 0 360 250" aria-label="B737 fuel tank diagram">
+      <defs>
+        <clipPath id="cpL"><polygon points="160,120 42,168 42,178 160,150"/></clipPath>
+        <clipPath id="cpR"><polygon points="200,120 318,168 318,178 200,150"/></clipPath>
+        <clipPath id="cpC"><rect x="167" y="112" width="26" height="42" rx="3"/></clipPath>
+      </defs>
+      <g fill="var(--plane)" stroke="var(--planeLine)" stroke-width="1.5" stroke-linejoin="round">
+        <polygon points="166,108 14,163 14,182 166,156"/>
+        <polygon points="194,108 346,163 346,182 194,156"/>
+        <polygon points="168,205 112,230 112,238 168,226"/>
+        <polygon points="192,205 248,230 248,238 192,226"/>
+        <path d="M180 8 C 196 8 196 30 196 50 L196 210 C196 232 188 244 180 246 C172 244 164 232 164 210 L164 50 C164 30 164 8 180 8 Z"/>
+        <rect x="88" y="150" width="16" height="26" rx="7"/>
+        <rect x="256" y="150" width="16" height="26" rx="7"/>
+      </g>
+      <g clip-path="url(#cpL)"><rect id="gLt" x="40" width="125" fill="var(--tgt)"/><rect id="gLa" x="40" width="125" fill="var(--arr)"/></g>
+      <g clip-path="url(#cpR)"><rect id="gRt" x="195" width="125" fill="var(--tgt)"/><rect id="gRa" x="195" width="125" fill="var(--arr)"/></g>
+      <g clip-path="url(#cpC)"><rect id="gCt" x="165" width="30" fill="var(--tgt)"/><rect id="gCa" x="165" width="30" fill="var(--arr)"/></g>
+      <g fill="none" stroke="var(--ink)" stroke-width="1.2" stroke-dasharray="3 2">
+        <polygon points="160,120 42,168 42,178 160,150"/>
+        <polygon points="200,120 318,168 318,178 200,150"/>
+        <rect x="167" y="112" width="26" height="42" rx="3"/>
+      </g>
+      <g font-size="13" font-weight="700" fill="var(--ink)" text-anchor="middle" font-family="inherit">
+        <text x="75" y="205">LEFT</text><text x="285" y="205">RIGHT</text><text x="180" y="105">CTR</text>
+      </g>
+      <g font-size="13" fill="var(--acc)" text-anchor="middle" font-family="inherit" font-weight="700">
+        <text id="sL" x="75" y="222"></text><text id="sR" x="285" y="222"></text><text id="sC" x="180" y="172"></text>
+      </g>
+    </svg>
+    <div class="legend"><span><i style="background:var(--arr)"></i>At landing</span><span><i style="background:var(--tgt)"></i>Target</span></div>
+    <table>
+      <thead><tr><th>Tank</th><th>Landing</th><th>Target</th><th>To add</th></tr></thead>
+      <tbody>
+        <tr><td>Left</td><td id="aL">—</td><td id="tL">—</td><td class="add" id="dL">—</td></tr>
+        <tr><td>Center</td><td id="aC">—</td><td id="tC">—</td><td class="add" id="dC">—</td></tr>
+        <tr><td>Right</td><td id="aR">—</td><td id="tR">—</td><td class="add" id="dR">—</td></tr>
+        <tr class="tot"><td>Total</td><td id="aT">—</td><td id="tT">—</td><td class="add" id="dT">—</td></tr>
+      </tbody>
+    </table>
+    <div id="note"></div>
+  </div>
+
+  <div class="card">
+    <h2>Uplift check</h2>
+    <div class="row">
+      <div>
+        <label for="planL">Planned uplift (L)</label>
+        <input id="planL" class="auto" inputmode="decimal" placeholder="auto">
+        <div class="hint" id="planHint">Auto-calculated</div>
+      </div>
+      <div>
+        <label for="actL">Actual uplift (L)</label>
+        <input id="actL" inputmode="decimal" placeholder="from fuel receipt">
+        <div class="hint">From fuel receipt / bowser</div>
+      </div>
+    </div>
+    <div class="kv" style="margin-top:6px"><span>Planned</span><b id="planKg">—</b></div>
+    <div class="kv"><span>Actual</span><b id="actKg">—</b></div>
+    <div class="kv"><span>Difference</span><b id="diffKg">—</b></div>
+    <div class="kv"><span>Expected FOB after refuel</span><b id="fob">—</b></div>
+    <div id="checkAlert"></div>
+  </div>
+
+  <button class="btn" id="clear" type="button">Clear all</button>
+  </div>
+
+  <div id="pgTime">
+    <h1>Time Calculator</h1>
+    <div class="sub">Type 120 for 1:20 · last two digits are minutes</div>
+    <div class="card">
+      <div id="tExpr" aria-live="polite"></div>
+      <div class="hint" id="tErr" style="color:var(--bad);font-size:14px"></div>
+      <div class="pad">
+        <button type="button" data-k="7">7</button><button type="button" data-k="8">8</button><button type="button" data-k="9">9</button><button type="button" data-k="bk" class="fn">⌫</button>
+        <button type="button" data-k="4">4</button><button type="button" data-k="5">5</button><button type="button" data-k="6">6</button><button type="button" data-k=" + " class="op">+</button>
+        <button type="button" data-k="1">1</button><button type="button" data-k="2">2</button><button type="button" data-k="3">3</button><button type="button" data-k=" - " class="op">−</button>
+        <button type="button" data-k="clr" class="fn">C</button><button type="button" data-k="0" style="grid-column:span 2">0</button><button type="button" data-k="00">00</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Total</h2>
+      <div class="tres" id="tRes">0:00</div>
+      <div class="kv"><span>Hours &amp; minutes</span><b id="tHm">0 h 0 min</b></div>
+      <div class="kv"><span>Decimal hours</span><b id="tDec">0.00</b></div>
+      <div class="kv"><span>Total minutes</span><b id="tMin">0</b></div>
+    </div>
+    <div class="sub" style="text-align:center">120 → 1:20 · 45 → 0:45 · 1005 → 10:05</div>
+  </div>
+
+  <div class="foot">Support tool only. Always cross-check with FCOM/OM and operator procedures.</div>
+</div>
+</div>
+
+<script>
+(function(){
+  const WING=7900, TOL=200, WING_CAP=3950, CTR_CAP=13000;
+  const $=id=>document.getElementById(id);
+  $('nojs').style.display='none';
+  const num=id=>{const v=parseFloat(String($(id).value||'').replace(/[\s,]/g,''));return isNaN(v)?null:v;};
+  const fmt=n=>n==null||isNaN(n)?'—':Math.round(n).toLocaleString('en-US');
+  const split=tot=>{const w=Math.min(tot,WING);return {L:w/2,R:w/2,C:Math.max(0,tot-WING)};};
+  const store={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
+  let planManual=false;
+
+  const saved=store.get('b737_sg');
+  if(saved){ if(saved==='0.79'||saved==='0.80') $('sg').value=saved; else {$('sg').value='custom';$('sgCustom').value=saved;} }
+
+  function sg(){
+    if($('sg').value==='custom'){const v=parseFloat(String($('sgCustom').value).replace(',','.'));return v>0.7&&v<0.86?v:null;}
+    return parseFloat($('sg').value);
+  }
+
+  const geo={L:[120,178],R:[120,178],C:[112,154]};
+  function fill(id,tank,kg,cap){
+    const [t,b]=geo[tank],h=b-t,f=Math.max(0,Math.min(1,(kg||0)/cap)),r=$(id);
+    r.setAttribute('y',b-f*h);r.setAttribute('height',f*h);
+  }
+
+  function calc(){
+    $('sgCustom').classList.toggle('hidden',$('sg').value!=='custom');
+    const d=sg();
+    store.set('b737_sg',$('sg').value==='custom'?String($('sgCustom').value).replace(',','.'):$('sg').value);
+
+    const arr=num('arr'),req=num('req');
+    const A=arr!=null?split(arr):null, T=req!=null?split(req):null;
+    ['L','C','R'].forEach(k=>{
+      $('a'+k).textContent=A?fmt(A[k]):'—';
+      $('t'+k).textContent=T?fmt(T[k]):'—';
+      const diff=A&&T?T[k]-A[k]:null;
+      $('d'+k).textContent=diff==null?'—':(diff>0?'+'+fmt(diff):fmt(diff));
+      $('s'+k).textContent=T?fmt(T[k])+' kg':(A?fmt(A[k])+' kg':'');
+      const cap=k==='C'?CTR_CAP:WING_CAP;
+      fill('g'+k+'a',k,A?A[k]:0,cap); fill('g'+k+'t',k,T?T[k]:(A?A[k]:0),cap);
+    });
+    $('aT').textContent=fmt(arr);$('tT').textContent=fmt(req);
+
+    let note='',upKg=null,upL=null;
+    if(arr!=null&&req!=null){
+      upKg=req-arr;
+      $('dT').textContent=(upKg>0?'+':'')+fmt(upKg);
+      if(upKg<=0){note='<div class="alert warn">No refuel required.</div>';upKg=0;}
+      if(d) upL=Math.ceil(upKg/d);
+    } else $('dT').textContent='—';
+    $('note').innerHTML=note;
+
+    // planned uplift auto-fill
+    if(!planManual){ $('planL').value=upL==null?'':String(upL); }
+    $('planL').classList.toggle('auto',!planManual);
+    $('planHint').innerHTML=planManual
+      ? 'Edited manually · <button type="button" id="resetPlan">reset to auto</button>'
+      : (upKg!=null?'Auto: '+fmt(upKg)+' kg ÷ '+(d||'—'):'Auto-calculated');
+    const rb=$('resetPlan'); if(rb) rb.onclick=()=>{planManual=false;calc();};
+
+    const pL=num('planL'),aL=num('actL');
+    const pKg=pL!=null&&d?pL*d:null,aKg=aL!=null&&d?aL*d:null;
+    $('planKg').textContent=pKg==null?'—':fmt(pKg)+' kg';
+    $('actKg').textContent=aKg==null?'—':fmt(aKg)+' kg';
+    $('fob').textContent=arr!=null&&aKg!=null?fmt(arr+aKg)+' kg':'—';
+    let html='';
+    if(pKg!=null&&aKg!=null){
+      const diff=aKg-pKg;
+      $('diffKg').textContent=(diff>0?'+':'')+fmt(diff)+' kg ('+(aL-pL>0?'+':'')+fmt(aL-pL)+' L)';
+      html=Math.abs(diff)>TOL
+        ?'<div class="alert bad">⚠ DISCREPANCY: '+fmt(Math.abs(diff))+' kg (exceeds 200 kg). Check fuel receipt, density and gauges.</div>'
+        :'<div class="alert ok">✓ Within tolerance: '+fmt(Math.abs(diff))+' kg</div>';
+    } else $('diffKg').textContent='—';
+    $('checkAlert').innerHTML=html;
+  }
+
+  $('planL').addEventListener('input',()=>{planManual=$('planL').value!=='';calc();});
+  $('clear').onclick=()=>{['arr','req','planL','actL'].forEach(i=>$(i).value='');planManual=false;calc();};
+  document.querySelectorAll('input,select').forEach(el=>{ if(el.id!=='planL'){el.addEventListener('input',calc);el.addEventListener('change',calc);} });
+  calc();
+
+  // ---------- Navigation ----------
+  $('rFuel').addEventListener('change',()=>{store.set('b737_page','fuel');window.scrollTo(0,0);});
+  $('rTime').addEventListener('change',()=>{store.set('b737_page','time');window.scrollTo(0,0);});
+  if(store.get('b737_page')==='time') $('rTime').checked=true;
+  // theme
+  const th=store.get('b737_theme'); if(th&&$(th)) $(th).checked=true;
+  ['thAuto','thDay','thNight'].forEach(id=>$(id).addEventListener('change',()=>store.set('b737_theme',id)));
+
+  // ---------- Time calculator ----------
+  function parseTime(s){
+    s=s.trim().toLowerCase().replace(/\s/g,'');
+    if(!s) return null;
+    let m;
+    if(m=s.match(/^(\d+):(\d{1,2})h?$/)) return +m[1]*60 + +m[2];
+    if(m=s.match(/^(\d+)h(\d{1,2})(m|min)?$/)) return +m[1]*60 + +m[2];
+    if(m=s.match(/^(\d+)h$/)) return +m[1]*60;
+    if(m=s.match(/^(\d+)(m|min)$/)) return +m[1];
+    if(m=s.match(/^(\d+)$/)){ // HHMM: last two digits = minutes
+      const d=m[1],mn=+d.slice(-2),h=d.length>2?+d.slice(0,-2):0;
+      return mn>59?NaN:h*60+mn;
+    }
+    if(m=s.match(/^(\d*[.,]\d+)$/)) return Math.round(parseFloat(m[1].replace(',','.'))*60);
+    return NaN;
+  }
+  const hm=v=>Math.floor(v/60)+':'+String(v%60).padStart(2,'0');
+  let raw='';
+  // live display: every number shown as h:mm (last two digits = minutes)
+  const dispNum=d=>{const mn=d.slice(-2).padStart(2,'0'),h=d.length>2?String(+d.slice(0,-2)):'0';return h+':'+mn;};
+  function render(){
+    const el=$('tExpr');
+    if(!raw){el.innerHTML='<span class="ph">0:00</span>';return;}
+    el.textContent=raw.replace(/\d+/g,dispNum).replace(/-/g,'−');
+  }
+  function tcalc(){
+    render();
+    let total=0,err='';
+    const parts=raw.split(/([+-])/);
+    let sign=1,prev=[];
+    parts.forEach(p=>{
+      if(p==='+'){sign=1;return;} if(p==='-'){sign=-1;return;}
+      const v=parseTime(p);
+      if(v===null) return;
+      if(isNaN(v)){err='Check "'+p.trim()+'" (minutes must be 00–59)';prev.push((prev.length?(sign<0?'− ':'+ '):(sign<0?'− ':''))+'?');return;}
+      prev.push((prev.length?(sign<0?'− ':'+ '):(sign<0?'− ':''))+hm(v));
+      total+=sign*v;
+    });
+    $('tErr').textContent=err;
+    const neg=total<0,a=Math.abs(total),h=Math.floor(a/60),mn=a%60;
+    $('tRes').textContent=(neg?'−':'')+h+':'+String(mn).padStart(2,'0');
+    $('tHm').textContent=(neg?'−':'')+h+' h '+mn+' min';
+    $('tDec').textContent=(total/60).toFixed(2);
+    $('tMin').textContent=total.toLocaleString('en-US');
+    store.set('b737_texpr',raw);
+  }
+  function press(k){
+    if(k==='bk') raw=raw.replace(/\s*[+-]\s*$|.$/,'');
+    else if(k==='clr') raw='';
+    else if(k===' + '||k===' - '){
+      if(!raw) return;
+      raw=raw.replace(/\s*[+-]\s*$/,'')+k;   // replace operator if pressed twice
+    }
+    else raw+=k;
+    tcalc();
+  }
+  const sv=store.get('b737_texpr'); if(sv&&/^[\d +-]*$/.test(sv)) raw=sv;
+  document.querySelectorAll('.pad button').forEach(b=>b.onclick=()=>press(b.dataset.k));
+  // physical keyboard support
+  document.addEventListener('keydown',e=>{
+    if(!$('rTime').checked) return;
+    if(/^\d$/.test(e.key)) press(e.key);
+    else if(e.key==='+') press(' + ');
+    else if(e.key==='-') press(' - ');
+    else if(e.key==='Backspace') press('bk');
+    else if(e.key==='Escape'||e.key==='Delete') press('clr');
+    else return;
+    e.preventDefault();
+  });
+  tcalc();
+  // offline support (only when served from the web, e.g. GitHub Pages)
+  if('serviceWorker' in navigator && (location.protocol==='https:'||location.hostname==='localhost')){
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  }
+})();
+</script>
+</body>
+</html>
